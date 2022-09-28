@@ -9,6 +9,7 @@ const redirect = {
     host: `${args[1]}`,
     port: parseInt(args[2])
 }
+const wlFile = "whitelist.json"
 
 // Rejected Ips List
 var rejected = []
@@ -19,7 +20,14 @@ const server = new net.Server()
 
 function read() {
     try {
-        return JSON.parse(fs.readFileSync("whitelist.json"))
+        if(fs.existsSync(wlFile)) {
+            return JSON.parse(fs.readFileSync(wlFile))
+        }
+        else {
+            const emptyList = {}
+            fs.writeFileSync(wlFile, JSON.stringify(emptyList))
+            return emptyList
+        }
     }
     catch(err) {
         fs.writeFileSync("whitelist.json", "{}")
@@ -61,8 +69,11 @@ server.on('connection', (socket) => {
             const size = (data[2] << 8) + data[3]
             var nick =  String.fromCharCode(...data.subarray(4, 4 + size))
             if (player.nick != nick) {
+                socket.write("8" + "\0" + "6{\"translate\":\"multiplayer.disconnect.not_whitelisted\"}")
                 socket.end()
                 client.end()
+                console.log(`[${now()}] ${socket.remoteAddress} don't has match for ${nick}.`)
+                return
             }
             else {
                 console.log(`[${now()}] ${nick} logged in from ${player.description}(${socket.remoteAddress})`)
